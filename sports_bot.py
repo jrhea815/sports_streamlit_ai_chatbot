@@ -1,79 +1,96 @@
-import openai
+import os
+import pandas as pd
 import streamlit as st
-import time
+from dotenv import load_dotenv
 
-assistant_id = ${{ secrets.OPENAI_API }}
+from langchain_openai import ChatOpenAI
+from langchain_experimental.agents import create_pandas_dataframe_agent
 
-client = openai
+# --- Env / API key ---
+load_dotenv()
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
-if "start_chat" not in st.session_state:
-    st.session_state.start_chat = False
-if "thread_id" not in st.session_state:
-    st.session_state.thread_id = None
+# --- Streamlit basics ---
+st.set_page_config(page_title="Sports CSV Chat", page_icon="🏈", layout="centered")
+st.title("🏈 Sports CSV Chat")
 
-st.set_page_config(page_title="SportsGPT", page_icon=":speech_balloon:")
+CSV_PATH_DEFAULT = "stats.csv"   # <-- your repo file
 
-openai.api_key = "sk-insert Your OpenAI API Key"
+@st.cache_data(show_spinner=False)
+def load_csv(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path)
+    return df
 
-if st.sidebar.button("Start Chat"):
-    st.session_state.start_chat = True
-    thread = client.beta.threads.create()
-    st.session_state.thread_id = thread.id
+def make_agent(df: pd.DataFrame):
+    llm = ChatOpenAI(model=OPENAI_MODEL, temperature=0)
+    agent = create_pandas_dataframe_agent(
+        llm,
+        df,
+        agent_type="openai-tools",     # tool-calling; stable parsing
+        verbose=False,
+        allow_dangerous_code=True,     # lets the agent execute pandas code
+        handle_parsing_errors=True,
+    )
+    return agent
 
-st.title("SportsGPT like Chatbot")
-st.write("Sports Chatbot")
+# --- Sidebar: controls ---
+st.sidebar.subheader("Data source")
+csv_path = st.sidebar.text_input("Path to CSV", CSV_PATH_DEFAULT)
+reload_btn = st.sidebar.button("Load / Reload CSV", type="primary")
+st.sidebar.caption("Default is ./stats.csv in this repo.")
 
-if st.button("Exit Chat"):
-    st.session_state.messages = []  # Clear the chat history
-    st.session_state.start_chat = False  # Reset the chat state
-    st.session_state.thread_id = None
+# --- Load DF & agent on first run or when reloaded ---
+if "df" not in st.session_state or reload_btn:
+    try:
+        st.session_state.df = load_csv(csv_path)
+        st.session_state.agent = make_agent(st.session_state.df)
+        st.sidebar.success(f"Loaded {len(st.session_state.df):,} rows ✅")
+    except Exception as e:
+        st.sidebar.error(f"Could not load CSV at '{csv_path}': {e}")
 
-if st.session_state.start_chat:
-    if "openai_model" not in st.session_state:
-        st.session_state.openai_model = "gpt-4-1106-preview"
-    if "messages" not in st.session_state:
+# Preview the data
+if "df" in st.session_state:
+    with st.expander("Preview stats.csv (top 10)", expanded=False):
+        st.dataframe(st.session_state.df.head(10), use_container_width=True)
+    with st.expander("Columns", expanded=False):
+        st.code(", ".join(st.session_state.df.columns.tolist()))
+
+# Reset chat
+colA, colB = st.columns(2)
+with colA:
+    if st.button("Reset chat"):
         st.session_state.messages = []
-    
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
 
-    if prompt := st.chat_input("Meow Meow?"):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+st.caption("Ask things like: *'Amon-Ra St. Brown receiving yards last 5'*, *'Average rushing yards for Christian McCaffrey by week in 2025'*.")
 
-        client.beta.threads.messages.create(
-                thread_id=st.session_state.thread_id,
-                role="user",
-                content=prompt
-            )
-        
-        run = client.beta.threads.runs.create(
-            thread_id=st.session_state.thread_id,
-            assistant_id=assistant_id,
-            instructions="Ask a question"
-        )
+# --- Chat history ---
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-        while run.status != 'completed':
-            time.sleep(1)
-            run = client.beta.threads.runs.retrieve(
-                thread_id=st.session_state.thread_id,
-                run_id=run.id
-            )
-        messages = client.beta.threads.messages.list(
-            thread_id=st.session_state.thread_id
-        )
+for m in st.session_state.messages:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
 
-        # Process and display assistant messages
-        assistant_messages_for_run = [
-            message for message in messages 
-            if message.run_id == run.id and message.role == "assistant"
-        ]
-        for message in assistant_messages_for_run:
-            st.session_state.messages.append({"role": "assistant", "content": message.content[0].text.value})
-            with st.chat_message("assistant"):
-                st.markdown(message.content[0].text.value)
+# --- Chat input ---
+q = st.chat_input("Ask about player performance…")
+if q:
+    st.session_state.messages.append({"role": "user", "content": q})
+    with st.chat_message("user"):
+        st.markdown(q)
 
-else:
-    st.write("Click 'Start Chat' to begin.")
+    if "agent" not in st.session_state:
+        with st.chat_message("assistant"):
+            st.warning("Load a CSV first from the sidebar.")
+    else:
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking…"):
+                # Give the model a tiny nudge to be concise and show code results
+                instruction = (
+                    "Be concise. Prefer tables for results. "
+                    "If you compute 'last N', show which rows you used."
+                )
+                out = st.session_state.agent.invoke({"input": f"{instruction}\n\n{q}"})
+                ans = out.get("output", str(out))
+                st.markdown(ans)
+
+        st.session_state.messages.append({"role": "assistant", "content": ans})
