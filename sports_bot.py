@@ -3,12 +3,16 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
+import yaml
 
 from langchain_openai import ChatOpenAI
 from langchain_experimental.agents import create_pandas_dataframe_agent
 
 
-openai_api = st.secrets["OPEN_API_KEY"]
+with open('secrets.yaml', "r") as f:
+    secrets_data = yaml.safe_load(f)
+
+openai_api = secrets_data['api_key']["key"]
 
 # --- Streamlit basics ---
 st.set_page_config(page_title="NFL Chatbot", page_icon="🏈", layout="wide")
