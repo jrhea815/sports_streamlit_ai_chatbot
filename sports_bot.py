@@ -7,6 +7,9 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_experimental.agents import create_pandas_dataframe_agent
 
+
+openai_api = st.secrets["OPEN_API_KEY"]
+
 # --- Streamlit basics ---
 st.set_page_config(page_title="Sports CSV Chat", page_icon="🏈", layout="centered")
 st.title("🏈 Sports CSV Chat")
@@ -20,7 +23,7 @@ def load_csv(path: Path) -> pd.DataFrame:
     return pd.read_csv(path)
 
 def make_agent(df: pd.DataFrame):
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key= "${{ secrets.OPENAI_API }}")
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key= openai_api)
     return create_pandas_dataframe_agent(
         llm,
         df,
