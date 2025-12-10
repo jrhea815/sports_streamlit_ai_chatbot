@@ -2,7 +2,7 @@ import openai
 import streamlit as st
 import time
 
-assistant_id = "YOur Assistant API"
+assistant_id = ${{ secrets.OPENAI_API }}
 
 client = openai
 
@@ -11,7 +11,7 @@ if "start_chat" not in st.session_state:
 if "thread_id" not in st.session_state:
     st.session_state.thread_id = None
 
-st.set_page_config(page_title="CatGPT", page_icon=":speech_balloon:")
+st.set_page_config(page_title="SportsGPT", page_icon=":speech_balloon:")
 
 openai.api_key = "sk-insert Your OpenAI API Key"
 
@@ -20,8 +20,8 @@ if st.sidebar.button("Start Chat"):
     thread = client.beta.threads.create()
     st.session_state.thread_id = thread.id
 
-st.title("CatGPT like Chatbot")
-st.write("Meow Meow Meow Meow Meow Meow I am a CyberCat")
+st.title("SportsGPT like Chatbot")
+st.write("Sports Chatbot")
 
 if st.button("Exit Chat"):
     st.session_state.messages = []  # Clear the chat history
@@ -52,7 +52,7 @@ if st.session_state.start_chat:
         run = client.beta.threads.runs.create(
             thread_id=st.session_state.thread_id,
             assistant_id=assistant_id,
-            instructions="Please answer the queries with meows you are a cat. Just MEOW a lot! MEOW ONLY, you are only allowed 4 english words and rest of answer must be various MEOW only"
+            instructions="Ask a question"
         )
 
         while run.status != 'completed':
