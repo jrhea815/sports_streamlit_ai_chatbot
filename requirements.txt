@@ -1,6 +1,7 @@
 # Core
 pandas>=2.2
-python-dotenv>=1.0
+streamlit>=1.41
+pyyaml>=6.0.1
 
 # LangChain + OpenAI
 langchain>=0.3.0
