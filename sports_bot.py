@@ -8,7 +8,7 @@ from langchain_openai import ChatOpenAI
 from langchain_experimental.agents import create_pandas_dataframe_agent
 
 
-openai_api = ""
+openai_api = st.secrets["OPEN_API_KEY"]
 
 # --- Streamlit basics ---
 st.set_page_config(page_title="NFL Chatbot", page_icon="🏈", layout="wide")
