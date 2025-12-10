@@ -8,11 +8,11 @@ from langchain_openai import ChatOpenAI
 from langchain_experimental.agents import create_pandas_dataframe_agent
 
 
-openai_api = st.secrets["OPEN_API_KEY"]
+openai_api = ""
 
 # --- Streamlit basics ---
-st.set_page_config(page_title="Sports CSV Chat", page_icon="🏈", layout="centered")
-st.title("🏈 Sports CSV Chat")
+st.set_page_config(page_title="NFL Chatbot", page_icon="🏈", layout="wide")
+st.title("🏈 NFL Chatbot")
 
 CSV_PATH = Path(__file__).parent / "stats.csv"  # <- fixed file in your repo
 
@@ -54,7 +54,7 @@ if "messages" not in st.session_state:
 if st.button("Reset chat"):
     st.session_state.messages = []
 
-st.caption("Try: *'Amon-Ra St. Brown receiving yards last 5'*, *'CMC rushing yards by week in 2025 and the average'*.")
+st.caption("Try: *'J. Gibbs rushing yards by game in 2025'*.")
 
 # History
 for m in st.session_state.messages:
