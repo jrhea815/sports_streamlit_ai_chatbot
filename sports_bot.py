@@ -6,12 +6,18 @@ import streamlit as st
 from langchain_openai import ChatOpenAI
 from langchain_experimental.agents import create_pandas_dataframe_agent
 
+# NEW: S3 sync helper (your s3_sync.py)
+from s3_sync import S3ObjectRef, ensure_latest_local_csv
 
 # --- Streamlit basics ---
 st.set_page_config(page_title="NFL Query Chat", page_icon="🏈", layout="wide")
 st.title("🏈 NFL Query Chat")
 
-CSV_PATH = Path(__file__).parent / "stats.csv"  # fixed file in your repo
+CSV_PATH = Path(__file__).parent / "stats.csv"  # local cached copy on EC2
+
+# TODO: set these to your bucket + object key
+S3_BUCKET = os.getenv("S3_BUCKET", "nfl-data-demo")
+S3_KEY = os.getenv("S3_KEY", "nfl_stats.csv")
 
 
 @st.cache_data(show_spinner=False)
@@ -34,10 +40,6 @@ def make_agent(df: pd.DataFrame, api_key: str):
 
 
 def verify_api_key(api_key: str) -> tuple[bool, str]:
-    """
-    Verifies the key by making a minimal call.
-    Returns (ok, message).
-    """
     try:
         llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
         _ = llm.invoke("Reply with 'ok' only.")
@@ -69,7 +71,6 @@ with st.sidebar:
         connect = st.button("Connect", use_container_width=True)
     with col2:
         disconnect = st.button("Disconnect", use_container_width=True)
-    
 
     if disconnect:
         st.session_state.api_verified = False
@@ -94,11 +95,38 @@ with st.sidebar:
         st.info("Paste your API key and click **Connect** to start.")
         st.stop()
 
+    # --------------------------
+    # NEW: optional manual refresh
+    # --------------------------
+    st.divider()
+    st.subheader("📦 Data Source (S3)")
+    st.caption(f"s3://{S3_BUCKET}/{S3_KEY}")
+
+    if st.button("🔄 Refresh stats.csv from S3", use_container_width=True):
+        try:
+            ensure_latest_local_csv(
+                S3ObjectRef(bucket=S3_BUCKET, key=S3_KEY),
+                CSV_PATH,
+                force=True,
+            )
+            st.cache_data.clear()  # clear cached load_csv
+            st.toast("stats.csv refreshed.")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Refresh failed: {e}")
+
 
 # ----------------
-# Load CSV + agent
+# Sync CSV + agent
 # ----------------
 try:
+    # NEW: ensure local stats.csv is up-to-date vs S3 (won't re-download unless newer)
+    ensure_latest_local_csv(
+        S3ObjectRef(bucket=S3_BUCKET, key=S3_KEY),
+        CSV_PATH,
+        force=False,
+    )
+
     df = load_csv(CSV_PATH)
     agent = make_agent(df, st.session_state.openai_api_key)
     st.success(f"Loaded stats.csv — {len(df):,} rows")
