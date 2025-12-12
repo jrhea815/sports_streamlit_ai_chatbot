@@ -12,10 +12,10 @@ with open('secrets.yaml', "r") as f:
     secrets_data = yaml.safe_load(f)
 
 openai_api = secrets_data['api_key']
-d
+
 # --- Streamlit basics ---
-st.set_page_config(page_title="NFL Chatbot", page_icon="🏈", layout="wide")
-st.title("🏈 NFL Chatbot")
+st.set_page_config(page_title="NFL Query Chat", page_icon="🏈", layout="wide")
+st.title("🏈 NFL Query Chat")
 
 CSV_PATH = Path(__file__).parent / "stats.csv"  # <- fixed file in your repo
 
