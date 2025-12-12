@@ -11,8 +11,8 @@ from langchain_experimental.agents import create_pandas_dataframe_agent
 with open('secrets.yaml', "r") as f:
     secrets_data = yaml.safe_load(f)
 
-openai_api = secrets_data['api_key']["key"]
-
+openai_api = secrets_data['api_key']
+d
 # --- Streamlit basics ---
 st.set_page_config(page_title="NFL Chatbot", page_icon="🏈", layout="wide")
 st.title("🏈 NFL Chatbot")
